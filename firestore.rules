@@ -1,0 +1,125 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- PHASE 3: Primitives ---
+    function isSignedIn() { return request.auth != null; }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    
+    function isEmailVerified() {
+      // In this environment, we rely on the host authorization
+      // But we check if the user is in the authorized_users collection or is the owner email
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAuthorized() {
+      return isEmailVerified() && (
+        exists(/databases/$(database)/documents/authorized_users/$(request.auth.token.email.lower())) ||
+        request.auth.token.email.lower() == 'axisindiacnc@gmail.com'
+      );
+    }
+
+    function isAdmin() {
+      return isAuthorized() && (
+             (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
+             request.auth.token.email.lower() == 'axisindiacnc@gmail.com'
+      );
+    }
+
+    // --- PHASE 2: Entity Validation Blueprints ---
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'role', 'createdAt']) &&
+             data.uid == request.auth.uid &&
+             data.email == request.auth.token.email &&
+             data.role in ['admin', 'staff'] &&
+             data.uid is string && data.uid.size() <= 128 &&
+             data.email is string && data.email.size() <= 256;
+    }
+
+    function isValidCustomer(data) {
+      return data.keys().hasAll(['name', 'balance']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.balance is number &&
+             (data.get('phone', '') is string && data.get('phone', '').size() <= 30) &&
+             (data.get('email', '') is string && data.get('email', '').size() <= 256) &&
+             (data.get('totalIn', 0) is number) &&
+             (data.get('totalOut', 0) is number);
+    }
+
+    function isValidTransaction(data, isUpdate) {
+      return data.keys().hasAll(['customerId', 'amount', 'type', 'date']) &&
+             data.customerId is string && data.customerId.size() <= 128 &&
+             data.amount is number && data.amount >= 0 &&
+             data.type in ['in', 'out'] &&
+             data.date is string &&
+             (isUpdate || data.get('staffId', '') == request.auth.uid) && // Enforce staffId must match creator on registration only
+             (data.get('category', '') is string && data.get('category', '').size() <= 100) &&
+             (data.get('description', '') is string && data.get('description', '').size() <= 1000);
+    }
+
+    function isValidRecycleBin(data) {
+      return data.keys().hasAll(['originalId', 'originalCollection', 'originalData']) &&
+             data.originalId is string &&
+             data.originalCollection in ['transactions', 'customers'] &&
+             data.deletedBy == request.auth.uid; // Identity check
+    }
+
+    // --- PHASE 4: Match Blocks ---
+
+    // Authorized Users (Whitelisting service)
+    match /authorized_users/{email} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // User Profiles
+    match /users/{userId} {
+      allow read: if isAuthorized();
+      allow create: if isSignedIn() && request.auth.uid == userId && isValidUser(incoming());
+      allow update: if isAuthorized() && request.auth.uid == userId && 
+                    incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'updatedAt', 'role']) &&
+                    (incoming().role == existing().role || isAdmin());
+    }
+
+    // Customers
+    match /customers/{customerId} {
+      allow read: if isAuthorized();
+      allow create: if isAuthorized() && isValidCustomer(incoming());
+      allow update: if isAuthorized() && isValidCustomer(incoming()) &&
+                    // Check if it's a balance update or info update
+                    incoming().diff(existing()).affectedKeys().hasAny(['totalIn', 'totalOut', 'balance', 'updatedAt', 'name', 'phone', 'address', 'email']);
+      allow delete: if isAuthorized(); // Allow staff to move items to bin (which involves deleting original)
+    }
+
+    // Transactions
+    match /transactions/{transactionId} {
+      allow read: if isAuthorized();
+      allow create: if isAuthorized() && isValidTransaction(incoming(), false);
+      allow update: if isAuthorized() && isValidTransaction(incoming(), true) &&
+                    incoming().diff(existing()).affectedKeys().hasAny(['amount', 'type', 'date', 'description', 'category', 'updatedAt']);
+      allow delete: if isAuthorized();
+    }
+
+    // Recycle Bin
+    match /recycle_bin/{itemId} {
+      allow read: if isAuthorized();
+      allow create: if isAuthorized() && isValidRecycleBin(incoming());
+      allow update: if isAuthorized(); // Allow editing within the bin
+      allow delete: if isAuthorized();
+    }
+
+    // Settings
+    match /settings/{id} {
+      allow read: if isAuthorized();
+      allow write: if isAdmin();
+    }
+  }
+}

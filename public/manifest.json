@@ -1,0 +1,22 @@
+{
+  "name": "FlowManager",
+  "short_name": "FlowManager",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "description": "Professional Cash Flow Ledger and business transaction management system.",
+  "icons": [
+    {
+      "src": "https://picsum.photos/seed/flowmanager/192/192",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://picsum.photos/seed/flowmanager/512/512",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

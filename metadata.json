@@ -1,0 +1,9 @@
+{
+  "name": "FlowManager",
+  "description": "Professional Cash Flow Ledger and business transaction management system with automated WhatsApp notifications.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": []
+}

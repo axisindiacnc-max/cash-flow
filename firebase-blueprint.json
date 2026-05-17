@@ -1,0 +1,105 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Stores user roles and authorization info",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "staff"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Customer": {
+      "title": "Customer",
+      "description": "Business customer details and ledger summary",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "address": { "type": "string" },
+        "totalIn": { "type": "number" },
+        "totalOut": { "type": "number" },
+        "balance": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "balance"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Cash in or cash out entry",
+      "type": "object",
+      "properties": {
+        "customerId": { "type": "string" },
+        "amount": { "type": "number" },
+        "type": { "type": "string", "enum": ["in", "out"] },
+        "category": { "type": "string" },
+        "description": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "attachments": { "type": "array", "items": { "type": "string" } },
+        "staffId": { "type": "string" },
+        "staffName": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["customerId", "amount", "type", "date"]
+    },
+    "AuthorizedUser": {
+      "title": "Authorized User",
+      "description": "Whitelisted email addresses",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "addedBy": { "type": "string" },
+        "addedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email"]
+    },
+    "RecycleBinItem": {
+      "title": "Recycle Bin Item",
+      "description": "Deleted items for restoration",
+      "type": "object",
+      "properties": {
+        "originalId": { "type": "string" },
+        "originalCollection": { "type": "string" },
+        "originalData": { "type": "object" },
+        "deletedAt": { "type": "string", "format": "date-time" },
+        "deletedBy": { "type": "string" },
+        "deletedByEmail": { "type": "string" }
+      },
+      "required": ["originalId", "originalCollection", "originalData"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/customers/{customerId}": {
+      "schema": "Customer",
+      "description": "Customer list"
+    },
+    "/transactions/{transactionId}": {
+      "schema": "Transaction",
+      "description": "Financial transactions"
+    },
+    "/authorized_users/{email}": {
+      "schema": "AuthorizedUser",
+      "description": "Whitelist of authorized emails"
+    },
+    "/recycle_bin/{itemId}": {
+      "schema": "RecycleBinItem",
+      "description": "Storage for deleted records"
+    },
+    "/settings/{id}": {
+      "schema": "object",
+      "description": "Application settings"
+    }
+  }
+}
